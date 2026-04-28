@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI知识测试</title>
+    <!-- 引入Tailwind CSS简化样式 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 基础动画效果 */
+        .quiz-card { transition: all 0.3s ease; }
+        .option:hover { background-color: #f3f4f6; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col items-center py-10 px-4">
+    <div class="w-full max-w-2xl">
+        <!-- 页面标题 -->
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-8">AI知识小测试</h1>
+        
+        <!-- 测试容器 -->
+        <div id="quizContainer" class="bg-white rounded-xl shadow-md p-6 quiz-card min-h-[400px]">
+            <!-- 题目区域 -->
+            <div id="questionArea" class="mb-6">
+                <p class="text-lg font-semibold text-gray-700 mb-4">加载题目中...</p>
+            </div>
+            
+            <!-- 选项区域 -->
+            <div id="optionsArea" class="space-y-3 mb-8"></div>
+            
+            <!-- 按钮区域 -->
+            <div class="flex justify-between items-center">
+                <button id="prevBtn" class="px-4 py-2 bg-gray-200 rounded-lg hidden hover:bg-gray-300 transition">上一题</button>
+                <button id="nextBtn" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">下一题</button>
+                <button id="submitBtn" class="px-4 py-2 bg-green-500 text-white rounded-lg hidden hover:bg-green-600 transition">提交答案</button>
+            </div>
+        </div>
+        
+        <!-- 结果展示区域（默认隐藏） -->
+        <div id="resultArea" class="bg-white rounded-xl shadow-md p-6 mt-6 hidden">
+            <h2 class="text-2xl font-bold text-center text-gray-800 mb-4">测试完成！</h2>
+            <p class="text-xl text-center font-semibold mb-6">你的得分：<span id="score" class="text-blue-600"></span>/6</p>
+            <div id="answerDetail" class="text-gray-700 space-y-2"></div>
+            <button onclick="location.reload()" class="w-full mt-6 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">重新测试</button>
+        </div>
+    </div>
+
+    <script>
+        // 1. 测试题目数据（严格按照你的题目和答案编写）
+        const quizData = [
+            {
+                question: "1. 以下名称中，属于AI公司名的是？",
+                options: ["A. OpenAI", "B. OpenClaw", "C. DeepSeek", "D. ChatGPT"],
+                answer: ["A", "C"] // 正确答案
+            },
+            {
+                question: "2. 以下名称中，属于AI产品名的是？",
+                options: ["A. GPT-4", "B. Gemini", "C. Cloude", "D. Kimi"],
+                answer: ["B", "D"]
+            },
+            {
+                question: "3. 以下名称中，属于AI模型名的是？",
+                options: ["A. GPT-4", "B. GPT-4o", "C. Gemini", "D. Llama"],
+                answer: ["A", "B", "C", "D"]
+            },
+            {
+                question: '4. "GPT-4"和"ChatGPT"的关系，与下面哪一组最相近？',
+                options: ["A. 微信 vs 腾讯", "B. iPhone vs iOS系统", "C. Llama vs Meta AI", "D. 豆包 vs 字节跳动"],
+                answer: ["C"]
+            },
+            {
+                question: "5. 当你的同事说，TA正在与'Kimi聊天'时，Kimi可能指的是：",
+                options: ["A. 一款AI产品", "B. 一款AI模型", "C. 一套AI体系", "D. 一位叫做Kimi的同事"],
+                answer: ["A", "D"]
+            },
+            {
+                question: "6. 以下说法正确的是？",
+                options: [
+                    "A. \"多模态\"和\"大模型\"是AI发展的两个阶段",
+                    "B. 多模态AI需要同时运行多个独立的大模型",
+                    "C. 同一个大模型可以被包装成多个不同的应用形态",
+                    "D. 用户通常直接\"使用大模型\"，而不是使用AI产品"
+                ],
+                answer: ["C"]
+            }
+        ];
+
+        // 2. 全局变量
+        let currentQuestion = 0; // 当前题目索引
+        let userAnswers = Array(quizData.length).fill().map(() => []); // 存储用户答案
+
+        // DOM元素
+        const questionArea = document.getElementById('questionArea');
+        const optionsArea = document.getElementById('optionsArea');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const submitBtn = document.getElementById('submitBtn');
+        const resultArea = document.getElementById('resultArea');
+        const quizContainer = document.getElementById('quizContainer');
+        const scoreText = document.getElementById('score');
+        const answerDetail = document.getElementById('answerDetail');
+
+        // 3. 渲染当前题目
+        function renderQuestion() {
+            const q = quizData[currentQuestion];
+            // 渲染题目
+            questionArea.innerHTML = `<p class="text-lg font-semibold text-gray-700 mb-4">${q.question}</p>`;
+            // 渲染选项（复选框，支持多选）
+            optionsArea.innerHTML = '';
+            q.options.forEach((opt, index) => {
+                const optKey = opt.charAt(0); // 获取选项字母（A/B/C/D）
+                const isChecked = userAnswers[currentQuestion].includes(optKey);
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'option p-3 border rounded-lg cursor-pointer';
+                optionDiv.innerHTML = `
+                    <label class="flex items-center cursor-pointer w-full">
+                        <input type="checkbox" value="${optKey}" ${isChecked ? 'checked' : ''} 
+                               class="w-4 h-4 mr-3" onchange="selectOption(this)">
+                        ${opt}
+                    </label>
+                `;
+                optionsArea.appendChild(optionDiv);
+            });
+
+            // 控制按钮显示
+            prevBtn.classList.toggle('hidden', currentQuestion === 0);
+            nextBtn.classList.toggle('hidden', currentQuestion === quizData.length - 1);
+            submitBtn.classList.toggle('hidden', currentQuestion !== quizData.length - 1);
+        }
+
+        // 4. 记录用户选择的选项
+        function selectOption(checkbox) {
+            const answerKey = checkbox.value;
+            const currentAnswers = userAnswers[currentQuestion];
+            // 新增/删除答案
+            if (checkbox.checked) {
+                if (!currentAnswers.includes(answerKey)) {
+                    currentAnswers.push(answerKey);
+                }
+            } else {
+                userAnswers[currentQuestion] = currentAnswers.filter(item => item !== answerKey);
+            }
+        }
+
+        // 5. 上一题
+        prevBtn.addEventListener('click', () => {
+            if (currentQuestion > 0) {
+                currentQuestion--;
+                renderQuestion();
+            }
+        });
+
+        // 6. 下一题
+        nextBtn.addEventListener('click', () => {
+            if (currentQuestion < quizData.length - 1) {
+                currentQuestion++;
+                renderQuestion();
+            }
+        });
+
+        // 7. 提交答案，计算得分
+        submitBtn.addEventListener('click', () => {
+            let score = 0;
+            let detailHtml = '';
+
+            // 遍历所有题目，对比答案
+            quizData.forEach((q, index) => {
+                // 排序后对比（避免顺序影响结果）
+                const userAns = [...userAnswers[index]].sort().join('');
+                const correctAns = [...q.answer].sort().join('');
+                const isCorrect = userAns === correctAns;
+
+                if (isCorrect) score++;
+                detailHtml += `
+                    <p>${index + 1}. ${isCorrect ? '✅ 正确' : '❌ 错误'} 
+                    <br>你的答案：${userAns || '未选择'} | 正确答案：${correctAns}</p>
+                `;
+            });
+
+            // 显示结果
+            quizContainer.classList.add('hidden');
+            resultArea.classList.remove('hidden');
+            scoreText.textContent = score;
+            answerDetail.innerHTML = detailHtml;
+        });
+
+        // 初始化页面
+        window.onload = renderQuestion;
+    </script>
+</body>
+</html>
